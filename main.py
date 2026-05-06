@@ -5,19 +5,17 @@ from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import LabeledPrice, InlineKeyboardMarkup, InlineKeyboardButton
 from keep_alive import keep_alive
 
-# --- КОНФИГУРАЦИЯ ---
+# --- НАСТРОЙКИ ---
 API_TOKEN = '8516621249:AAGJBXXFxUMCCfYJK_GqOYN9PMlZDIcHvHo'
 PAY_TOKEN = '5339121570:TEST:38691750-ef63-4684-937c-c13d5be15bb7'
-CHANNEL_ID = '@твой_канал' # Замени на свой канал (с @)
-ADMIN_URL = 'https://t.me' # Для кнопки поддержки
+CHANNEL_ID = '@tgxel'  # Твой канал
+ADMIN_URL = 'https://t.me' # Замени на свой контакт для саппорта
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-# Запуск сервера для Render (чтобы не засыпал)
-keep_alive()
-
+# Источники бесплатных VLESS
 SOURCES = [
     "https://githubusercontent.com",
     "https://githubusercontent.com"
@@ -26,51 +24,56 @@ SOURCES = [
 def get_parsed_config():
     try:
         r = requests.get(random.choice(SOURCES), timeout=5)
-        configs = [line for line in r.text.split('\n') if line.startswith('vless://')]
-        return random.choice(configs)
+        configs = [l.strip() for l in r.text.split('\n') if l.startswith('vless://')]
+        return random.choice(configs) if configs else None
     except: return None
 
 def main_kb():
     kb = InlineKeyboardMarkup(row_width=2)
     kb.add(
-        InlineKeyboardButton("⚡️ Подключить", callback_data="get_vpn"),
+        InlineKeyboardButton("⚡️ Подключить VPN", callback_data="get_vpn"),
         InlineKeyboardButton("👤 Профиль", callback_data="profile")
     )
     kb.add(InlineKeyboardButton("💳 Купить подписку", callback_data="buy"))
     kb.add(
         InlineKeyboardButton("🆘 Поддержка", url=ADMIN_URL),
-        InlineKeyboardButton("📢 Канал", url=f"https://t.me{CHANNEL_ID.replace('@','')}")
+        InlineKeyboardButton("📢 Канал", url="https://t.me")
     )
     return kb
 
 @dp.message_handler(commands=['start'])
 async def start(message: types.Message):
     text = (f"<b>Привет в Fly VPN! 👋</b>\n\n"
-            f"🚀 Лучшие VLESS протоколы для твоего интернета.\n"
-            f"💎 Скорость до 1 Гбит/с.\n\n"
-            f"<i>Выбери действие ниже:</i>")
+            f"🚀 Лучшие VLESS сервера от канала @tgxel.\n"
+            f"⚡️ Скорость без ограничений.\n\n"
+            f"<i>Для работы используй меню:</i>")
     await message.answer(text, reply_markup=main_kb(), parse_mode="HTML")
 
 @dp.callback_query_handler(text="get_vpn")
 async def get_vpn(call: types.CallbackQuery):
+    # Проверка подписки на @tgxel
     check = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=call.from_user.id)
     if check.status == 'left':
-        await call.answer("❗️ Подпишись на канал для доступа!", show_alert=True)
+        await call.answer("❗️ Сначала подпишись на @tgxel", show_alert=True)
         return
-    
+
     config = get_parsed_config()
     if config:
-        await call.message.answer(f"✅ <b>Твой конфиг:</b>\n\n<code>{config}</code>", parse_mode="HTML")
+        msg = (f"✅ <b>Твой конфиг готов:</b>\n\n"
+               f"<code>{config}</code>\n\n"
+               f"👆 Нажми, чтобы скопировать. Вставь в Happ.")
+        await call.message.answer(msg, parse_mode="HTML")
     else:
-        await call.answer("❌ Ошибка парсера, попробуй позже", show_alert=True)
+        await call.answer("❌ Ошибка базы, попробуй позже", show_alert=True)
 
 @dp.callback_query_handler(text="profile")
 async def profile(call: types.CallbackQuery):
-    ref_link = f"https://t.me{(await bot.get_me()).username}?start={call.from_user.id}"
-    text = (f"<b>👤 Личный кабинет Fly VPN</b>\n\n"
+    bot_info = await bot.get_me()
+    ref = f"https://t.me{bot_info.username}?start={call.from_user.id}"
+    text = (f"<b>👤 Личный кабинет</b>\n\n"
             f"<b>ID:</b> <code>{call.from_user.id}</code>\n"
-            f"<b>Статус:</b> <code>Бесплатный</code>\n\n"
-            f"🔗 <b>Реф. ссылка:</b>\n<code>{ref_link}</code>")
+            f"<b>Подписка:</b> @tgxel\n\n"
+            f"🔗 <b>Реф. ссылка:</b>\n<code>{ref}</code>")
     await call.message.edit_text(text, reply_markup=main_kb(), parse_mode="HTML")
 
 @dp.callback_query_handler(text="buy")
@@ -78,7 +81,7 @@ async def buy(call: types.CallbackQuery):
     await bot.send_invoice(
         call.message.chat.id,
         title="Fly VPN Premium",
-        description="Доступ к VIP серверам на 30 дней",
+        description="VIP доступ на 30 дней",
         provider_token=PAY_TOKEN,
         currency="RUB",
         prices=[LabeledPrice(label="Premium", amount=19900)],
@@ -91,8 +94,8 @@ async def checkout(q: types.PreCheckoutQuery):
 
 @dp.message_handler(content_types=types.ContentType.SUCCESSFUL_PAYMENT)
 async def success(message: types.Message):
-    kb = InlineKeyboardMarkup().add(InlineKeyboardButton("🔗 Привязать устройство", callback_data="get_vpn"))
-    await message.answer("🎉 <b>Оплата прошла!</b>\nНажми кнопку для получения VIP ключа:", reply_markup=kb, parse_mode="HTML")
+    await message.answer("🎉 <b>Оплата принята!</b>\nИспользуй кнопку 'Подключить' для VIP ключа.")
 
 if __name__ == '__main__':
+    keep_alive()
     executor.start_polling(dp, skip_updates=True)
