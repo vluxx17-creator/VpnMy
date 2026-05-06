@@ -1,6 +1,5 @@
 aiogram==2.25.1
 requests==2.31.0
 flask==3.0.0
-aiohttp==3.9.1
-multidict==6.0.4
-yarl==1.9.2
+aiohttp==3.8.6
+attrs==23.1.0
